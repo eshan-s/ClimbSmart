@@ -1,6 +1,8 @@
 // ClimbSmart Design Tokens
 
-export const C = {
+export type ColorPalette = typeof DARK_COLORS;
+
+export const DARK_COLORS = {
   // Backgrounds
   bg: '#0D0F14',
   surface: '#141720',
@@ -39,6 +41,46 @@ export const C = {
   white: '#FFFFFF',
   black: '#000000',
 };
+
+export const LIGHT_COLORS: ColorPalette = {
+  // Backgrounds
+  bg: '#F5F6FA',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  cardHigh: '#EEF0F8',
+
+  // Borders
+  border: '#DEE1F0',
+  borderLight: '#E8EAFA',
+
+  // Brand — same primary colour
+  primary: '#FF6535',
+  primaryBg: 'rgba(255, 101, 53, 0.10)',
+  primaryBorder: 'rgba(255, 101, 53, 0.30)',
+
+  accent: '#4B8EFF',
+  accentBg: 'rgba(75, 142, 255, 0.10)',
+  accentBorder: 'rgba(75, 142, 255, 0.30)',
+
+  success: '#3DC87A',
+  successBg: 'rgba(61, 200, 122, 0.10)',
+  successBorder: 'rgba(61, 200, 122, 0.30)',
+
+  warning: '#F5BC3C',
+  warningBg: 'rgba(245, 188, 60, 0.10)',
+  warningBorder: 'rgba(245, 188, 60, 0.30)',
+
+  // Text
+  text: '#111422',
+  textSub: '#5A5E78',
+  textMuted: '#9698AA',
+
+  white: '#FFFFFF',
+  black: '#000000',
+};
+
+// Default static export — keeps all existing imports working (dark by default)
+export const C = DARK_COLORS;
 
 export const S = {
   xs: 4,

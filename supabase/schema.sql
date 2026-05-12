@@ -40,15 +40,31 @@ CREATE POLICY "profiles_delete" ON profiles FOR DELETE  USING (id = auth.uid());
 
 -- ── Goals ─────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS goals (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  target_grade  TEXT NOT NULL,
-  target_date   DATE,
-  status        TEXT DEFAULT 'active',
-  discipline    TEXT DEFAULT 'bouldering',
-  notes         TEXT,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- v1 fields (kept for backward compat)
+  target_grade   TEXT,
+  target_date    DATE,
+  status         TEXT DEFAULT 'active',
+  discipline     TEXT DEFAULT 'bouldering',
+  notes          TEXT,
+  -- v2 multi-goal fields
+  goal_type      TEXT DEFAULT 'bouldering',  -- bouldering | top_rope | strength
+  exercise_type  TEXT,                        -- for strength goals
+  target_value   NUMERIC,                     -- for strength goals (reps / seconds)
+  unit           TEXT,                        -- 'reps' | 'seconds'
+  is_active      BOOLEAN DEFAULT TRUE,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Idempotent column additions for existing databases
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS goal_type     TEXT DEFAULT 'bouldering';
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS exercise_type TEXT;
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS target_value  NUMERIC;
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS unit          TEXT;
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_active     BOOLEAN DEFAULT TRUE;
+-- Make target_grade nullable for strength goals
+ALTER TABLE goals ALTER COLUMN target_grade DROP NOT NULL;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON goals TO authenticated;
 
@@ -100,9 +116,16 @@ CREATE TABLE IF NOT EXISTS climbing_attempts (
   result     TEXT DEFAULT 'send',
   route_name TEXT,
   style_tag  TEXT,
+  -- NEW v2 columns (safe to ADD IF NOT EXISTS for existing installs)
+  route_type TEXT DEFAULT 'bouldering', -- bouldering | top_rope
+  climb_type TEXT,                       -- slab | overhang | vertical | compression | crimpy | other
   notes      TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Idempotent column adds for databases that ran the original schema
+ALTER TABLE climbing_attempts ADD COLUMN IF NOT EXISTS route_type TEXT DEFAULT 'bouldering';
+ALTER TABLE climbing_attempts ADD COLUMN IF NOT EXISTS climb_type TEXT;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON climbing_attempts TO authenticated;
 
@@ -240,3 +263,12 @@ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE insights;
 EXCEPTION WHEN others THEN NULL;
 END $$;
+
+-- ── Refresh PostgREST schema cache ────────────────────────────────────────────
+-- IMPORTANT: run this after ANY ALTER TABLE statement, or if you see the error:
+--   "Could not find the 'climb_type' column of 'climbing_attempts' in the schema cache"
+--
+-- You can also run JUST this line on its own in the SQL Editor whenever the
+-- cache appears stale — it is safe to run at any time with no side effects.
+NOTIFY pgrst, 'reload schema';
+SELECT pg_notify('pgrst', 'reload schema');  -- belt-and-suspenders alias

@@ -16,11 +16,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { createClimbingSession, addClimbingAttempts } from '@/services/climbing';
-import { C, F, R, S } from '@/constants/Theme';
-import { DISPLAY_GRADES, gradeColor } from '@/utils/grades';
+import { F, R, S } from '@/constants/Theme';
+import { gradesForType, gradeColor, type RouteType } from '@/utils/grades';
+import type { ClimbType } from '@/types';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 type ResultType = 'flash' | 'send' | 'project' | 'fail';
 
 interface ClimbEntry {
@@ -28,15 +29,26 @@ interface ClimbEntry {
   result: ResultType;
   attempts: number;
   route_name: string;
+  route_type: RouteType;
+  climb_type: ClimbType | '';
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const RESULTS: { value: ResultType; label: string; color: string }[] = [
   { value: 'flash', label: 'Flash', color: '#EAB308' },
   { value: 'send', label: 'Send', color: '#3DC87A' },
   { value: 'project', label: 'Project', color: '#4B8EFF' },
   { value: 'fail', label: 'Fail', color: '#7E839E' },
+];
+
+const CLIMB_TYPES: { value: ClimbType; label: string }[] = [
+  { value: 'slab', label: 'Slab' },
+  { value: 'overhang', label: 'Overhang' },
+  { value: 'vertical', label: 'Vertical' },
+  { value: 'compression', label: 'Compression' },
+  { value: 'crimpy', label: 'Crimpy' },
+  { value: 'other', label: 'Other' },
 ];
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -46,6 +58,7 @@ const today = () => new Date().toISOString().split('T')[0];
 export default function LogClimbScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors: C } = useTheme();
 
   // Session fields
   const [date, setDate] = useState(today());
@@ -54,25 +67,42 @@ export default function LogClimbScreen() {
   const [duration, setDuration] = useState('');
   const [sessionNotes, setSessionNotes] = useState('');
 
-  // Climbs list
+  // Climb list
   const [climbs, setClimbs] = useState<ClimbEntry[]>([]);
 
-  // Add-climb form
+  // Add-climb form state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selGrade, setSelGrade] = useState('V4');
+  const [routeType, setRouteType] = useState<RouteType>('bouldering');
+  const gradeList = gradesForType(routeType);
+  const defaultGrade = routeType === 'bouldering' ? 'V4' : '5.10a';
+  const [selGrade, setSelGrade] = useState(defaultGrade);
   const [selResult, setSelResult] = useState<ResultType>('send');
   const [selAttempts, setSelAttempts] = useState(1);
+  const [selClimbType, setSelClimbType] = useState<ClimbType | ''>('');
   const [routeName, setRouteName] = useState('');
 
   const [saving, setSaving] = useState(false);
 
+  const switchRouteType = (rt: RouteType) => {
+    setRouteType(rt);
+    setSelGrade(rt === 'bouldering' ? 'V4' : '5.10a');
+  };
+
   const addClimb = () => {
     setClimbs((prev) => [
       ...prev,
-      { grade: selGrade, result: selResult, attempts: selAttempts, route_name: routeName },
+      {
+        grade: selGrade,
+        result: selResult,
+        attempts: selAttempts,
+        route_name: routeName,
+        route_type: routeType,
+        climb_type: selClimbType,
+      },
     ]);
     setRouteName('');
     setSelAttempts(1);
+    setSelClimbType('');
     setShowAddForm(false);
   };
 
@@ -83,10 +113,6 @@ export default function LogClimbScreen() {
   const handleSave = async () => {
     if (!user) {
       Alert.alert('Not signed in', 'Please sign in before saving a session.');
-      return;
-    }
-    if (!gym.trim() && sessionType === 'indoor') {
-      Alert.alert('Add location', 'Please enter a gym or location name.');
       return;
     }
 
@@ -110,7 +136,9 @@ export default function LogClimbScreen() {
             result: c.result,
             attempts: c.attempts,
             route_name: c.route_name || null,
-            style_tag: null,
+            route_type: c.route_type,
+            climb_type: c.climb_type || null,
+            style_tag: c.climb_type || null,
             notes: null,
           }))
         );
@@ -125,8 +153,10 @@ export default function LogClimbScreen() {
     }
   };
 
+  const styles = makeStyles(C);
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -157,7 +187,7 @@ export default function LogClimbScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Session Info ─────────────────────────────────────────────── */}
+          {/* ── Session Info ───────────────────────────────────────────────── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Session Info</Text>
             <View style={styles.card}>
@@ -186,18 +216,10 @@ export default function LogClimbScreen() {
                   {(['indoor', 'outdoor'] as const).map((t) => (
                     <TouchableOpacity
                       key={t}
-                      style={[
-                        styles.toggleBtn,
-                        sessionType === t && styles.toggleActive,
-                      ]}
+                      style={[styles.toggleBtn, sessionType === t && styles.toggleActive]}
                       onPress={() => setSessionType(t)}
                     >
-                      <Text
-                        style={[
-                          styles.toggleText,
-                          sessionType === t && styles.toggleTextActive,
-                        ]}
-                      >
+                      <Text style={[styles.toggleText, sessionType === t && styles.toggleTextActive]}>
                         {t.charAt(0).toUpperCase() + t.slice(1)}
                       </Text>
                     </TouchableOpacity>
@@ -218,7 +240,7 @@ export default function LogClimbScreen() {
             </View>
           </View>
 
-          {/* ── Climbs ───────────────────────────────────────────────────── */}
+          {/* ── Climbs ────────────────────────────────────────────────────── */}
           <View style={styles.section}>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>Climbs ({climbs.length})</Text>
@@ -226,27 +248,46 @@ export default function LogClimbScreen() {
                 style={styles.addChip}
                 onPress={() => setShowAddForm((v) => !v)}
               >
-                <Ionicons
-                  name={showAddForm ? 'remove' : 'add'}
-                  size={14}
-                  color={C.primary}
-                />
+                <Ionicons name={showAddForm ? 'remove' : 'add'} size={14} color={C.primary} />
                 <Text style={styles.addChipText}>
                   {showAddForm ? 'Cancel' : 'Add Climb'}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Add form */}
             {showAddForm && (
               <View style={styles.addForm}>
-                <Text style={styles.formLabel}>Grade</Text>
+                {/* Route type */}
+                <Text style={styles.formLabel}>Discipline</Text>
+                <View style={styles.toggleRow}>
+                  {([
+                    { value: 'bouldering', label: 'Bouldering' },
+                    { value: 'top_rope', label: 'Top Rope' },
+                  ] as { value: RouteType; label: string }[]).map((rt) => (
+                    <TouchableOpacity
+                      key={rt.value}
+                      style={[
+                        styles.toggleBtn,
+                        routeType === rt.value && styles.toggleActive,
+                        { flex: 1 },
+                      ]}
+                      onPress={() => switchRouteType(rt.value)}
+                    >
+                      <Text style={[styles.toggleText, routeType === rt.value && styles.toggleTextActive]}>
+                        {rt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Grade */}
+                <Text style={[styles.formLabel, { marginTop: 12 }]}>Grade</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.gradeScroll}
                 >
-                  {DISPLAY_GRADES.map((g) => {
+                  {gradeList.map((g) => {
                     const color = gradeColor(g);
                     const active = selGrade === g;
                     return (
@@ -261,14 +302,13 @@ export default function LogClimbScreen() {
                         ]}
                         onPress={() => setSelGrade(g)}
                       >
-                        <Text style={[styles.gradePillText, { color: active ? C.white : color }]}>
-                          {g}
-                        </Text>
+                        <Text style={[styles.gradePillText, { color: active ? C.white : color }]}>{g}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </ScrollView>
 
+                {/* Result */}
                 <Text style={styles.formLabel}>Result</Text>
                 <View style={styles.resultRow}>
                   {RESULTS.map((r) => (
@@ -277,26 +317,42 @@ export default function LogClimbScreen() {
                       style={[
                         styles.resultBtn,
                         {
-                          backgroundColor:
-                            selResult === r.value ? r.color + '30' : C.surface,
-                          borderColor:
-                            selResult === r.value ? r.color : C.border,
+                          backgroundColor: selResult === r.value ? r.color + '30' : C.surface,
+                          borderColor: selResult === r.value ? r.color : C.border,
                         },
                       ]}
                       onPress={() => setSelResult(r.value)}
                     >
-                      <Text
-                        style={[
-                          styles.resultText,
-                          { color: selResult === r.value ? r.color : C.textSub },
-                        ]}
-                      >
+                      <Text style={[styles.resultText, { color: selResult === r.value ? r.color : C.textSub }]}>
                         {r.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
+                {/* Climb type */}
+                <Text style={styles.formLabel}>Style (optional)</Text>
+                <View style={styles.resultRow}>
+                  {CLIMB_TYPES.map((ct) => (
+                    <TouchableOpacity
+                      key={ct.value}
+                      style={[
+                        styles.resultBtn,
+                        {
+                          backgroundColor: selClimbType === ct.value ? C.primaryBg : C.surface,
+                          borderColor: selClimbType === ct.value ? C.primary : C.border,
+                        },
+                      ]}
+                      onPress={() => setSelClimbType((v) => (v === ct.value ? '' : ct.value))}
+                    >
+                      <Text style={[styles.resultText, { color: selClimbType === ct.value ? C.primary : C.textSub }]}>
+                        {ct.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Attempts + Route name */}
                 <View style={styles.attemptsRow}>
                   <View style={styles.attemptsLeft}>
                     <Text style={styles.formLabel}>Attempts</Text>
@@ -351,25 +407,15 @@ export default function LogClimbScreen() {
                     <Text style={[styles.climbGrade, { color: gc }]}>{climb.grade}</Text>
                   </View>
                   <View style={styles.climbInfo}>
-                    <Text style={styles.climbName}>
-                      {climb.route_name || 'Unnamed route'}
-                    </Text>
+                    <Text style={styles.climbName}>{climb.route_name || 'Unnamed route'}</Text>
                     <Text style={styles.climbSub}>
+                      {climb.route_type === 'top_rope' ? 'TR · ' : ''}
                       {climb.attempts} attempt{climb.attempts > 1 ? 's' : ''}
+                      {climb.climb_type ? ` · ${climb.climb_type}` : ''}
                     </Text>
                   </View>
-                  <View
-                    style={[
-                      styles.climbResultBadge,
-                      { backgroundColor: (rc?.color ?? C.textSub) + '22' },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.climbResultText,
-                        { color: rc?.color ?? C.textSub },
-                      ]}
-                    >
+                  <View style={[styles.climbResultBadge, { backgroundColor: (rc?.color ?? C.textSub) + '22' }]}>
+                    <Text style={[styles.climbResultText, { color: rc?.color ?? C.textSub }]}>
                       {rc?.label}
                     </Text>
                   </View>
@@ -381,7 +427,7 @@ export default function LogClimbScreen() {
             })}
           </View>
 
-          {/* ── Notes ────────────────────────────────────────────────────── */}
+          {/* ── Notes ─────────────────────────────────────────────────────── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Notes (optional)</Text>
             <TextInput
@@ -401,7 +447,7 @@ export default function LogClimbScreen() {
   );
 }
 
-// ─── Field wrapper ────────────────────────────────────────────────────────────
+// ─── Field wrapper ─────────────────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={fieldStyles.row}>
@@ -411,22 +457,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 const fieldStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  label: { width: 110, fontSize: F.sm, color: C.textSub },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  label: { width: 110, fontSize: F.sm, color: '#7E839E' },
   right: { flex: 1 },
 });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+function makeStyles(C: ReturnType<typeof useTheme>['colors']) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   scroll: { flex: 1 },
   content: { paddingHorizontal: S.md, paddingBottom: 40 },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -455,7 +496,6 @@ const styles = StyleSheet.create({
   },
   saveBtnText: { color: C.white, fontWeight: '700', fontSize: F.sm },
 
-  // Sections
   section: { marginTop: 20 },
   sectionRow: {
     flexDirection: 'row',
@@ -474,7 +514,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: C.border },
   textInput: { flex: 1, color: C.text, fontSize: F.base, textAlign: 'right' },
 
-  // Type toggle
   toggleRow: { flexDirection: 'row', gap: 8 },
   toggleBtn: {
     paddingHorizontal: 14,
@@ -488,7 +527,6 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: F.sm, color: C.textSub, fontWeight: '600' },
   toggleTextActive: { color: C.primary },
 
-  // Add chip
   addChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -502,7 +540,6 @@ const styles = StyleSheet.create({
   },
   addChipText: { fontSize: F.xs, color: C.primary, fontWeight: '700' },
 
-  // Add form
   addForm: {
     backgroundColor: C.card,
     borderRadius: R.lg,
@@ -514,16 +551,16 @@ const styles = StyleSheet.create({
   formLabel: { fontSize: F.xs, color: C.textSub, fontWeight: '600', marginBottom: 8, marginTop: 4 },
   gradeScroll: { gap: 8, paddingBottom: 4 },
   gradePill: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: R.full,
     borderWidth: 1.5,
   },
   gradePillText: { fontSize: F.sm, fontWeight: '800' },
-  resultRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  resultRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
   resultBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: R.md,
     borderWidth: 1,
   },
@@ -564,7 +601,6 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: { color: C.white, fontWeight: '700', fontSize: F.sm },
 
-  // Climb rows
   emptyClimbs: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -587,26 +623,22 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   climbGradeBox: {
-    width: 40,
+    minWidth: 46,
     height: 40,
     borderRadius: R.sm,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   climbGrade: { fontSize: F.sm, fontWeight: '800' },
   climbInfo: { flex: 1 },
   climbName: { fontSize: F.sm, fontWeight: '600', color: C.text },
   climbSub: { fontSize: F.xs, color: C.textSub },
-  climbResultBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: R.full,
-  },
+  climbResultBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.full },
   climbResultText: { fontSize: F.xs, fontWeight: '700' },
   removeBtn: { padding: 4 },
 
-  // Notes
   notesInput: {
     backgroundColor: C.card,
     borderWidth: 1,
@@ -617,4 +649,4 @@ const styles = StyleSheet.create({
     fontSize: F.base,
     minHeight: 90,
   },
-});
+}); }

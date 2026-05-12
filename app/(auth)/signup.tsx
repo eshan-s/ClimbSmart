@@ -16,7 +16,19 @@ import { StatusBar } from 'expo-status-bar';
 import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { C, F, R, S } from '@/constants/Theme';
+
+// Signup always uses the dark brand baseline (matches login).
+const BG = '#0A0A0F';
+const SURFACE = '#121218';
+const CARD = '#17171F';
+const BORDER = '#2A2A38';
+const BORDER_FOCUS = '#FF6535';
+const TEXT = '#F0F0F8';
+const TEXT_SUB = '#7E839E';
+const TEXT_MUTED = '#4A4F6A';
+const ORANGE = '#FF6535';
+const ORANGE_DIM = '#FF653518';
+const ORANGE_BORDER = '#FF653540';
 
 export default function SignupScreen() {
   const { session, signUp } = useAuth();
@@ -72,11 +84,12 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           contentContainerStyle={styles.content}
@@ -84,14 +97,14 @@ export default function SignupScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Back */}
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color={C.text} />
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8 }}>
+            <Ionicons name="arrow-back" size={20} color={TEXT} />
           </TouchableOpacity>
 
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoIcon}>
-              <Ionicons name="flag" size={32} color={C.primary} />
+              <Ionicons name="flag" size={28} color={ORANGE} />
             </View>
             <Text style={styles.title}>Create account</Text>
             <Text style={styles.sub}>Start tracking your climbing progression</Text>
@@ -102,13 +115,13 @@ export default function SignupScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Full Name</Text>
               <View style={styles.inputWrap}>
-                <Ionicons name="person-outline" size={16} color={C.textMuted} style={styles.inputIcon} />
+                <Ionicons name="person-outline" size={15} color={TEXT_MUTED} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={fullName}
                   onChangeText={setFullName}
                   placeholder="Alex Johnson"
-                  placeholderTextColor={C.textMuted}
+                  placeholderTextColor={TEXT_MUTED}
                   autoCapitalize="words"
                   autoComplete="name"
                   returnKeyType="next"
@@ -119,13 +132,13 @@ export default function SignupScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputWrap}>
-                <Ionicons name="mail-outline" size={16} color={C.textMuted} style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={15} color={TEXT_MUTED} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="you@example.com"
-                  placeholderTextColor={C.textMuted}
+                  placeholderTextColor={TEXT_MUTED}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
@@ -134,27 +147,23 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            <View style={styles.field}>
+            <View style={[styles.field, { marginBottom: 0 }]}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrap}>
-                <Ionicons name="lock-closed-outline" size={16} color={C.textMuted} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={15} color={TEXT_MUTED} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Min. 6 characters"
-                  placeholderTextColor={C.textMuted}
+                  placeholderTextColor={TEXT_MUTED}
                   secureTextEntry={!showPass}
                   autoComplete="new-password"
                   returnKeyType="done"
                   onSubmitEditing={handleSignUp}
                 />
-                <TouchableOpacity onPress={() => setShowPass((v) => !v)} style={styles.eyeBtn}>
-                  <Ionicons
-                    name={showPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={16}
-                    color={C.textMuted}
-                  />
+                <TouchableOpacity onPress={() => setShowPass((v) => !v)} style={styles.eyeBtn} hitSlop={{ top: 8, bottom: 8 }}>
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={15} color={TEXT_MUTED} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -163,10 +172,10 @@ export default function SignupScreen() {
               style={[styles.primaryBtn, loading && styles.btnDisabled]}
               onPress={handleSignUp}
               disabled={loading}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               {loading ? (
-                <ActivityIndicator color={C.white} size="small" />
+                <ActivityIndicator color="#000" size="small" />
               ) : (
                 <Text style={styles.primaryBtnText}>Create Account</Text>
               )}
@@ -180,7 +189,7 @@ export default function SignupScreen() {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login')} hitSlop={{ top: 8, bottom: 8 }}>
               <Text style={styles.footerLink}>Sign in</Text>
             </TouchableOpacity>
           </View>
@@ -191,96 +200,50 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: S.md,
-    paddingTop: S.lg,
-    paddingBottom: S.xl,
-  },
+  safe: { flex: 1, backgroundColor: BG },
+  content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 },
 
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: S.lg,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 28,
   },
 
   header: { alignItems: 'center', marginBottom: 32 },
   logoIcon: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: C.primaryBg,
-    borderWidth: 2,
-    borderColor: C.primaryBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
+    width: 68, height: 68, borderRadius: 20,
+    backgroundColor: ORANGE_DIM, borderWidth: 1.5, borderColor: ORANGE_BORDER,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
-  title: { fontSize: F.xl, fontWeight: '800', color: C.text },
-  sub: { fontSize: F.sm, color: C.textSub, marginTop: 4, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: '800', color: TEXT },
+  sub: { fontSize: 13, color: TEXT_MUTED, marginTop: 5, textAlign: 'center' },
 
   card: {
-    backgroundColor: C.card,
-    borderRadius: R.xl,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 20,
+    backgroundColor: CARD, borderRadius: 20, padding: 24,
+    borderWidth: 1, borderColor: BORDER, marginBottom: 20, gap: 16,
   },
-
-  field: { marginBottom: 16 },
-  label: {
-    fontSize: F.xs,
-    color: C.textSub,
-    fontWeight: '600',
-    marginBottom: 6,
-    letterSpacing: 0.3,
-  },
+  field: { gap: 7 },
+  label: { fontSize: 11, color: TEXT_MUTED, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: R.md,
-    paddingHorizontal: 14,
-    height: 50,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER,
+    borderRadius: 12, paddingHorizontal: 14, height: 52,
   },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, color: C.text, fontSize: F.base },
-  eyeBtn: { padding: 4 },
+  input: { flex: 1, color: TEXT, fontSize: 15, letterSpacing: 0.2 },
+  eyeBtn: { paddingLeft: 8 },
 
   primaryBtn: {
-    backgroundColor: C.primary,
-    borderRadius: R.md,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    backgroundColor: ORANGE, borderRadius: 12, height: 52,
+    alignItems: 'center', justifyContent: 'center', marginTop: 4,
+    shadowColor: ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12,
   },
-  btnDisabled: { opacity: 0.6 },
-  primaryBtnText: { color: C.white, fontSize: F.base, fontWeight: '700' },
+  btnDisabled: { opacity: 0.55 },
+  primaryBtnText: { color: '#000', fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
 
-  terms: {
-    fontSize: F.xs,
-    color: C.textMuted,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
+  terms: { fontSize: 11, color: TEXT_MUTED, textAlign: 'center', lineHeight: 16 },
 
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerText: { fontSize: F.sm, color: C.textSub },
-  footerLink: { fontSize: F.sm, color: C.primary, fontWeight: '700' },
+  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  footerText: { fontSize: 13, color: TEXT_MUTED },
+  footerLink: { fontSize: 13, color: ORANGE, fontWeight: '700' },
 });
